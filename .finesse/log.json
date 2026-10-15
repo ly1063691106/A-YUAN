@@ -1,0 +1,111 @@
+[
+  {
+    "build": 4,
+    "date": "2026-10-15",
+    "project": "阿缘摄影品牌网站",
+    "surface": "index.html",
+    "register": "brand",
+    "skeleton": "portfolio",
+    "iteration_of": 3,
+    "motion_beats": [
+      "image-transform / 交叉溶解+Ken Burns（首屏轮播，重拍）",
+      "scroll narrative / 横向轨（沿用）",
+      "state transition / 进场显影：IO 驱动 .rv 浮起（新，一次性 ≤0.9s ≤28px）",
+      "image-transform / shotIn 升级为欠曝→显影亮度爬坡（新）",
+      "typographic / 首屏副标-地理-计数接力 riseIn（新）；导航滑入（新）"
+    ],
+    "heavy_beats": 1,
+    "shipped_libraries": 0,
+    "rm_policy": "RM 不再一刀切：持续运动装饰（Ken Burns/Canvas/logo 扫光/循环箭头/悬停缩放）定格；一次性进场降级为纯淡入零位移；轮播照常（内容切换）",
+    "bugs_fixed": [
+      "本机 matchMedia('prefers-reduced-motion: reduce') 实测为 true（Windows 关动画效果），旧逻辑在 RM 下跳过全部动效——这就是用户『没有轮播效果』的根因",
+      "reveals() 曾在 boot() 之前执行，JS 动态生成的 craft__item.rv 永远不被观察、擅长区隐身——已调整为 boot() 之后执行"
+    ],
+    "verified": "CDP：nav is-in + riseIn 生效；简介/合作区 is-in 全 true；craft 4/4 滚动后全显影；forced-RM 下内容可见性正常"
+  },
+  {
+    "build": 3,
+    "date": "2026-10-15",
+    "project": "阿缘摄影品牌网站",
+    "surface": "index.html",
+    "register": "brand",
+    "skeleton": "portfolio",
+    "iteration_of": 2,
+    "changes": [
+      "首屏：去掉银盐颗粒遮罩，只留压暗渐变；修复轮播不启动的根因（prefers-reduced-motion 时旧代码直接 return，改为轮播始终运行、仅 Ken Burns 跟随系统设置）",
+      "首屏：新增左右方向箭头（圆形描边、悬停暗房红），手动切换后重新计时",
+      "合作区提示文字：13px muted → 16px ink-2，暗房红左竖线 + 微亮底，重新设计",
+      "排序下拉：appearance:none + 自绘 chevron 背景右 15px 垂直居中（原生箭头各浏览器偏移）",
+      "简介二维码标签：光厂→阿缘摄影光厂素材店铺、新片场→阿缘摄影新片场素材店铺"
+    ],
+    "verified": "CDP 实测：next 点击 n0→n1/计数 02，prev 回 0，静置 6.5s 自动进 1；遮罩 backgroundImage 仅 linear-gradient；select bg-position right 15px center"
+  },
+  {
+    "build": 2,
+    "date": "2026-10-15",
+    "project": "阿缘摄影品牌网站",
+    "surface": "index.html",
+    "register": "brand",
+    "skeleton": "portfolio",
+    "axes": {
+      "A": "墨黑+相纸白+暗房红单色锁定（沿用 build 1）",
+      "B": "宋体字重600 / 阿里巴巴普惠体400（沿用 build 1）",
+      "C": "照片轮播首屏 + 钉住横向底片轨 + 齐边行接触印样（justified rows）",
+      "D": "CSS 交叉溶解 + Ken Burns 推近 + Canvas 墨雾降为兜底层",
+      "E": "暗房银盐（颗粒保留在照片遮罩上，胶片计数器）"
+    },
+    "dials": {
+      "SOUL": 8,
+      "SPECTACLE": 6,
+      "DENSITY": 4
+    },
+    "palette_family": "pure monochrome + single pop（暗房红）",
+    "motion_beats": [
+      "image-transform / 交叉溶解+Ken Burns（首屏精选轮播，R1）",
+      "scroll narrative / 横向轨（作品区，R2 sticky，沿用）",
+      "state transition / 筛选重排（R3 View Transitions，沿用）",
+      "atmosphere / Canvas 墨雾（兜底层，R1）"
+    ],
+    "heavy_beats": 1,
+    "shipped_libraries": 0,
+    "rejected_defaults": [
+      "等比方块墙（旧版 object-fit:cover 一比一裁切）",
+      "Swiper/第三方轮播库（零依赖承诺）"
+    ],
+    "notes": "改版：首屏改 5-10 张精选自动轮播（6s/张、1.7s 溶解、Ken Burns 9.5s、页签隐藏暂停、RM 定格首帧）；作品网格改 Pixabay 式齐边行，按真实 w/h 保留比例，行内/行间 4px（手机 3px），末行超基准 1.35 倍则不硬撑。CDP 实测：行右缘 11/12 齐 1176px，间隙全 4px。"
+  },
+  {
+    "build": 1,
+    "date": "2026-10-13",
+    "project": "阿缘摄影品牌网站",
+    "surface": "index.html",
+    "register": "brand",
+    "skeleton": "portfolio",
+    "axes": {
+      "A": "墨黑+相纸白+暗房红单色锁定",
+      "B": "宋体字重600 / 阿里巴巴普惠体400",
+      "C": "全屏首屏 + 钉住横向底片轨 + 接触印样网格",
+      "D": "手写 Canvas 2D 墨雾显影 + CSS mask 扫过",
+      "E": "暗房银盐（显影液、安全灯、底片编号）"
+    },
+    "dials": {
+      "SOUL": 8,
+      "SPECTACLE": 6,
+      "DENSITY": 4
+    },
+    "palette_family": "pure monochrome + single pop（暗房红）",
+    "motion_beats": [
+      "image-transform / mask dissolve（首屏，R1+手写 Canvas）",
+      "scroll narrative / 横向轨（作品区，R2 sticky）",
+      "state transition / 筛选重排（R3 View Transitions）",
+      "typographic + atmosphere（收尾，R1）"
+    ],
+    "heavy_beats": 1,
+    "shipped_libraries": 0,
+    "rejected_defaults": [
+      "纯黑底 + 全屏大图瀑布流 + 细体英文名 + 滚动淡入（摄影师站通病）",
+      "米色 + 大衬线 + 大量留白的杂志感"
+    ],
+    "notes": "首次构建，无历史可比对。旋转约束从下一次构建开始生效。"
+  }
+]

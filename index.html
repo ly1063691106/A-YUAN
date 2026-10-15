@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>阿缘摄影 · 广州纪实婚礼 / 活动 / 儿童 / 产品摄影</title>
+<meta name="description" content="阿缘摄影，广州。五年以上商业拍摄经验，涵盖纪实婚礼摄像、活动摄影、儿童摄影、产品摄影。精通佳能单反与索尼设备，熟练 PS、PR、LR 后期，可独立完成前期拍摄与后期制作。">
+<link rel="icon" href="assets/img/favicon.png">
+<link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body>
+
+<!-- 首屏背景：手写 Canvas，墨迹在显影液里散开 -->
+<canvas id="developer" aria-hidden="true"></canvas>
+
+<header class="nav" id="nav">
+  <a class="nav__brand" href="#top">阿缘摄影</a>
+  <nav class="nav__links">
+    <a href="#works">作品</a>
+    <a href="#craft">擅长</a>
+    <a href="#contact">合作</a>
+  </nav>
+</header>
+
+<main id="top">
+
+  <!-- ============ 首屏 ============ -->
+  <section class="hero">
+    <!-- 首屏精选轮播：5–10 张精选作品自动换，模糊占位先出，大图慢慢显影 -->
+    <div class="hero__stage" id="heroStage" aria-hidden="true"></div>
+    <div class="hero__veil" aria-hidden="true"></div>
+    <div class="hero__inner">
+      <h1 class="hero__logo">
+        <img src="assets/img/logo-light.png" alt="阿缘摄影 A YUAN PHOTOGRAPHY" width="1400" height="524">
+      </h1>
+      <p class="hero__sub">纪实婚礼摄像 · 活动摄影 · 儿童摄影 · 产品摄影</p>
+      <p class="hero__meta">广州 · 五年以上商业拍摄</p>
+    </div>
+    <p class="hero__count" id="heroCount" aria-hidden="true"></p>
+    <button class="hero__arrow hero__arrow--prev" id="heroPrev" type="button" aria-label="上一张">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+    </button>
+    <button class="hero__arrow hero__arrow--next" id="heroNext" type="button" aria-label="下一张">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 5.5 16 12l-6.5 6.5"/></svg>
+    </button>
+    <a class="hero__scroll" href="#works">往下看作品<i aria-hidden="true"></i></a>
+  </section>
+
+  <!-- ============ 简介 ============ -->
+  <section class="about" id="about">
+    <div class="about__grid">
+      <div class="about__text">
+        <!-- 简介文字取自你的设计文稿，原文未改 -->
+        <p class="lede rv">拥有5年以上摄影行业经验，专注于商业拍摄领域，涵盖电商产品拍摄、公务摄影、婚礼跟拍、儿童摄影等多类型项目。精通佳能系列单反相机及索尼设备操作，熟悉多种拍摄手法，具备扎实的前期拍摄能力。同时熟练掌握DR、PS、PR、LR等后期软件，可独立完成后期制作工作。具备良好的沟通能力和较强的时间观念，能够高效完成拍摄任务并确保作品质量。</p>
+      </div>
+      <aside class="about__stores rv" style="--d:140ms">
+        <p class="about__label">素材店铺</p>
+        <ul class="qr">
+          <li>
+            <a class="qr__tile" href="https://www.vjshi.com/profile/3134061.html" target="_blank" rel="noopener" title="打开光厂店铺">
+              <img src="assets/img/qr/video-store.png" alt="光厂素材店铺二维码" loading="lazy">
+              <span>阿缘摄影光厂素材店铺</span>
+            </a>
+          </li>
+          <li>
+            <a class="qr__tile" href="https://stock.xinpianchang.com/profile/12016800" target="_blank" rel="noopener" title="打开新片场店铺">
+              <img src="assets/img/qr/xinpianchang.png" alt="新片场素材店铺二维码" loading="lazy">
+              <span>阿缘摄影新片场素材店铺</span>
+            </a>
+          </li>
+        </ul>
+      </aside>
+    </div>
+    <ul class="facts">
+      <li class="rv"><b>5 年+</b><span>商业拍摄经验</span></li>
+      <li class="rv"><b>佳能 · 索尼</b><span>单反与微单双系统</span></li>
+      <li class="rv"><b>前期到后期</b><span>照片与视频全流程独立完成</span></li>
+      <li class="rv"><b>广州</b><span>可出市区及珠三角</span></li>
+    </ul>
+  </section>
+
+  <!-- ============ 作品 · 横向轨 ============ -->
+  <section class="rail" id="rail">
+    <div class="rail__pin">
+      <div class="rail__head">
+        <h2>作品</h2>
+        <p class="rail__hint"><span class="only-wide">左右滑动，或继续向下滚动</span><span class="only-narrow">左右滑动看更多</span></p>
+      </div>
+      <div class="rail__viewport">
+        <div class="rail__track" id="railTrack"></div>
+        <div class="rail__bar"><i id="railBar"></i></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 作品 · 全部 ============ -->
+  <section class="works" id="works">
+    <div class="works__head rv">
+      <h2>全部作品</h2>
+      <p class="works__count" id="worksCount"></p>
+    </div>
+
+    <div class="filters rv" role="tablist" aria-label="作品分类">
+      <button class="chip is-on" data-filter="all" role="tab" aria-selected="true">全部</button>
+      <button class="chip" data-filter="featured" role="tab" aria-selected="false">精选</button>
+      <button class="chip" data-filter="l" role="tab" aria-selected="false">横构图</button>
+      <button class="chip" data-filter="p" role="tab" aria-selected="false">竖构图</button>
+      <button class="chip" data-filter="video" role="tab" aria-selected="false">视频</button>
+      <span class="filters__gap"></span>
+      <label class="sort">
+        <span>排序</span>
+        <select id="sortBy">
+          <option value="date">按时间</option>
+          <option value="pinned">置顶优先</option>
+          <option value="views">按浏览量</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="grid" id="grid"></div>
+    <p class="grid__empty" id="gridEmpty" hidden>这个分类下还没有作品。</p>
+    <button class="more" id="moreBtn" type="button">展开更多</button>
+  </section>
+
+  <!-- ============ 擅长 ============ -->
+  <section class="craft" id="craft">
+    <div class="craft__head rv">
+      <h2>我擅长什么</h2>
+      <p class="craft__note">四个方向，同一套标准：能拍，也能自己修完。</p>
+    </div>
+    <ol class="craft__list" id="craftList"></ol>
+  </section>
+
+  <!-- ============ 合作 ============ -->
+  <section class="contact" id="contact">
+    <div class="contact__left">
+      <h2 class="rv">聊聊你的拍摄</h2>
+      <dl class="contact__dl rv">
+        <dt>电话 / 微信</dt>
+        <dd>
+          <a href="tel:+8618775020890">18775020890</a>
+          <button class="copy" type="button" data-copy="18775020890">复制</button>
+        </dd>
+        <dt>商务合作</dt>
+        <dd>
+          <a href="mailto:1063691106@qq.com">1063691106@qq.com</a>
+          <button class="copy" type="button" data-copy="1063691106@qq.com">复制</button>
+        </dd>
+        <dt>素材店铺</dt>
+        <dd class="stores">
+          <a href="https://www.vjshi.com/profile/3134061.html" target="_blank" rel="noopener">光厂 · 阿缘摄影</a>
+          <a href="https://stock.xinpianchang.com/profile/12016800" target="_blank" rel="noopener">新片场 · 阿缘摄影</a>
+        </dd>
+      </dl>
+      <p class="contact__tip rv">婚期或活动日期定了就可以先问档期，越早越好排。手机号点「复制」可以直接粘到微信加好友。</p>
+    </div>
+    <ul class="qr rv">
+      <li><span class="qr__tile"><img src="assets/img/qr/wechat.png" alt="微信二维码" loading="lazy"><span>微信</span></span></li>
+      <li><span class="qr__tile"><img src="assets/img/qr/gongzhonghao.png" alt="公众号二维码" loading="lazy"><span>公众号</span></span></li>
+      <li>
+        <a class="qr__tile" href="https://xhslink.cn/o/2ZOGlkbmiaJ" target="_blank" rel="noopener" title="打开小红书主页">
+          <img src="assets/img/qr/xiaohongshu.png" alt="小红书二维码" loading="lazy"><span>小红书</span>
+        </a>
+      </li>
+      <li>
+        <a class="qr__tile" href="https://v.douyin.com/x1J2l4DMlfg/" target="_blank" rel="noopener" title="打开抖音主页">
+          <img src="assets/img/qr/douyin.png" alt="抖音二维码" loading="lazy"><span>抖音</span>
+        </a>
+      </li>
+      <li>
+        <a class="qr__tile" href="https://www.vjshi.com/profile/3134061.html" target="_blank" rel="noopener" title="打开光厂店铺">
+          <img src="assets/img/qr/video-store.png" alt="光厂素材店铺二维码" loading="lazy"><span>光厂</span>
+        </a>
+      </li>
+      <li>
+        <a class="qr__tile" href="https://stock.xinpianchang.com/profile/12016800" target="_blank" rel="noopener" title="打开新片场店铺">
+          <img src="assets/img/qr/xinpianchang.png" alt="新片场素材店铺二维码" loading="lazy"><span>新片场</span>
+        </a>
+      </li>
+    </ul>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>© 2026 阿缘摄影 A YUAN PHOTOGRAPHY</span>
+  <span class="foot__links">
+    素材店铺
+    <a href="https://www.vjshi.com/profile/3134061.html" target="_blank" rel="noopener">光厂</a>
+    <a href="https://stock.xinpianchang.com/profile/12016800" target="_blank" rel="noopener">新片场</a>
+  </span>
+</footer>
+
+<!-- 灯箱 -->
+<div class="lb" id="lb" hidden>
+  <button class="lb__close" id="lbClose" aria-label="关闭">×</button>
+  <button class="lb__nav lb__nav--prev" id="lbPrev" aria-label="上一张">‹</button>
+  <button class="lb__nav lb__nav--next" id="lbNext" aria-label="下一张">›</button>
+  <figure class="lb__fig">
+    <img id="lbImg" alt="">
+    <figcaption class="lb__cap">
+      <p class="lb__capText" id="lbCaption"></p>
+      <p class="lb__meta"><span id="lbAlbum"></span><span id="lbTaken"></span><span id="lbCam"></span></p>
+      <p class="lb__link" id="lbLink" hidden></p>
+    </figcaption>
+  </figure>
+</div>
+
+<!-- 数据用 script 引入而不是 fetch，这样双击 index.html 也能直接打开 -->
+<script src="data/content.js"></script>
+<script src="data/photos.js"></script>
+<script src="assets/js/main.js"></script>
+</body>
+</html>

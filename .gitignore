@@ -1,0 +1,6 @@
+# 原图不上传：assets/media 里已有为网页生成的缩略图与大图
+photos/
+
+# 系统与编辑器杂项
+Thumbs.db
+Desktop.ini
