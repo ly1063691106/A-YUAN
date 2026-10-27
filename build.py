@@ -17,6 +17,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import sys
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
@@ -30,14 +31,20 @@ MEDIA_L = os.path.join(ROOT, 'assets', 'media', 'l')
 DATA_DIR = os.path.join(ROOT, 'data')
 
 EXTS = ('.jpg', '.jpeg', '.png', '.webp')
+EXTS_V = ('.mp4', '.mov', '.m4v', '.webm', '.m4p')
 THUMB_MAX = 900          # 网格用图最长边
 LARGE_MAX = 2000         # 灯箱大图最长边
 Q_THUMB = 74
 Q_LARGE = 82
 LQIP_W = 24              # 模糊占位图宽度
+MEDIA_V = os.path.join(ROOT, 'assets', 'media', 'v')
 
 # 每个作品集分组最多收录多少张（0 = 不限）。单组照片太多会淹掉其他组。
 MAX_PER_ALBUM = 0
+
+# 不上网的文件（按文件名匹配）：超过平台 2GiB 上传上限的大体积 MV 在此排除
+# （2026-10-18 视频已全部二次压缩，总量 0.62GB，无需再排除）
+EXCLUDE_FILES = set()
 
 
 def album_meta(name):
@@ -76,6 +83,66 @@ def process(job):
     """单个文件的处理：读原图 -> 写缩略图/大图/占位图 -> 返回元数据"""
     src, album_key, album_label, album_date, seq = job
     pid = make_id(album_key, seq)
+    ext = os.path.splitext(src)[1].lower()
+    if ext in EXTS_V:
+        return process_video(src, album_key, album_label, album_date, seq, pid)
+    return process_photo(src, album_key, album_label, album_date, seq, pid)
+
+
+def process_video(src, album_key, album_label, album_date, seq, pid):
+    """视频：抽一帧做封面 + 读时长 + 原样拷贝进上线目录。点击才加载，平时零流量。"""
+    import cv2
+    ext = os.path.splitext(src)[1].lower()
+    try:
+        cap = cv2.VideoCapture(src)
+        if not cap.isOpened():
+            return {'error': '%s: 无法读取视频' % os.path.basename(src)}
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30
+        frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        dur = round(frames / fps) if (fps and frames) else 0
+        # 取 1/4 处的帧当封面：第一帧经常是黑场
+        if dur:
+            cap.set(cv2.CAP_PROP_POS_MSEC, min(dur * 1000 * 0.25, 60000))
+        ok, frame = cap.read()
+        if not ok:                                   # 尝试第一帧兜底
+            cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+            ok, frame = cap.read()
+        cap.release()
+        if not ok:
+            return {'error': '%s: 无法抽取封面帧' % os.path.basename(src)}
+
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        im = Image.fromarray(frame)
+        w, h = im.size
+
+        # 封面（兼缩略图）与模糊占位图
+        th = im.copy(); th.thumbnail((THUMB_MAX, THUMB_MAX), Image.LANCZOS)
+        th.save(os.path.join(MEDIA_T, pid + '.webp'), 'WEBP', quality=Q_THUMB, method=5)
+        lq = im.copy(); lq.thumbnail((LQIP_W, LQIP_W), Image.LANCZOS)
+        buf = io.BytesIO(); lq.save(buf, 'WEBP', quality=40)
+        lqip = 'data:image/webp;base64,' + base64.b64encode(buf.getvalue()).decode('ascii')
+
+        # 视频本体原样拷贝（用户已压缩过，不再转码）；m4p 统一改 .mp4 以拿对 MIME
+        vext = '.mp4' if ext in ('.m4p',) else ext
+        shutil.copyfile(src, os.path.join(MEDIA_V, pid + vext))
+
+        ratio = w / h if h else 1
+        orient = 'l' if ratio > 1.12 else ('p' if ratio < 0.89 else 's')
+        return {
+            'id': pid, 'album': album_key, 'albumLabel': album_label,
+            'date': album_date, 'taken': '', 'w': w, 'h': h, 'o': orient,
+            'cam': '', 'kind': 'video', 'dur': dur,
+            't': 'assets/media/t/%s.webp' % pid,
+            'v': 'assets/media/v/%s%s' % (pid, vext),
+            'lqip': lqip,
+            'src': os.path.relpath(src, ROOT).replace('\\', '/'),
+            'featured': False, 'pinned': False, 'caption': '',
+        }
+    except Exception as e:
+        return {'error': '%s: %s' % (os.path.basename(src), e)}
+
+
+def process_photo(src, album_key, album_label, album_date, seq, pid):
     try:
         im = Image.open(src)
         im = ImageOps.exif_transpose(im)          # 按 EXIF 方向摆正
@@ -137,7 +204,7 @@ def load_list(fname):
 
 
 def main():
-    for d in (MEDIA_T, MEDIA_L, DATA_DIR):
+    for d in (MEDIA_T, MEDIA_L, MEDIA_V, DATA_DIR):
         os.makedirs(d, exist_ok=True)
 
     if not os.path.isdir(PHOTOS_DIR):
@@ -152,7 +219,9 @@ def main():
         adir = os.path.join(PHOTOS_DIR, album_key)
         if not os.path.isdir(adir):
             continue
-        files = sorted(f for f in os.listdir(adir) if f.lower().endswith(EXTS))
+        files = sorted(f for f in os.listdir(adir)
+                       if (f.lower().endswith(EXTS) or f.lower().endswith(EXTS_V))
+                       and f not in EXCLUDE_FILES)
         if not files:
             continue
         if MAX_PER_ALBUM and len(files) > MAX_PER_ALBUM:

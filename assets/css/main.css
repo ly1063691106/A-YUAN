@@ -218,28 +218,24 @@ main > section[id] { scroll-margin-top: calc(var(--nav-h) + 14px); }
   background: var(--accent);
 }
 
-/* 左右方向箭头 */
+/* 左右方向箭头：无圆圈，只留箭头本体，50% 不透明度 */
 .hero__arrow {
   position: absolute; top: 50%; z-index: 4;
   transform: translateY(-50%);
-  width: 46px; height: 46px;
+  width: 52px; height: 52px;
   display: grid; place-items: center;
-  color: rgba(239, 235, 228, .78);
-  border: 1px solid rgba(239, 235, 228, .30);
-  border-radius: 50%;
-  background: rgba(12, 11, 10, .24);
-  backdrop-filter: blur(4px);
-  transition: color .35s var(--ease), border-color .35s var(--ease),
-              background .35s var(--ease);
+  color: rgba(239, 235, 228, .5);
+  border: 0;
+  background: none;
+  transition: color .35s var(--ease), opacity .35s var(--ease);
+  opacity: 1;
 }
 .hero__arrow:hover {
-  color: #FFF4F0;
-  border-color: var(--accent);
-  background: rgba(194, 69, 46, .32);
+  color: rgba(255, 244, 240, .92);
 }
+.hero__arrow svg { display: block; width: 26px; height: 26px; }
 .hero__arrow--prev { left: calc(var(--gut) + 8px); }
 .hero__arrow--next { right: calc(var(--gut) + 8px); }
-.hero__arrow svg { display: block; }
 
 .hero__logo { margin: 0 auto; min-width: 0; max-width: 100%; }
 .hero__logo img {
@@ -506,12 +502,45 @@ main > section[id] { scroll-margin-top: calc(var(--nav-h) + 14px); }
   transition: filter .6s var(--ease), transform .8s var(--ease);
 }
 .shot:hover img { filter: none; transform: scale(1.035); }
+/* 精选角标：暗房红五角星图标（无底框），投影保证亮部底色上也看得见 */
 .shot__tag {
-  position: absolute; top: 10px; left: 10px;
-  font-size: 10px; letter-spacing: .2em;
-  color: #FFF4F0; background: var(--accent);
-  padding: 3px 8px;
+  position: absolute; top: 8px; left: 8px;
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  color: #E4593F;
+  filter: drop-shadow(0 1px 3px rgba(6, 5, 4, .75));
+  pointer-events: none;
 }
+.shot__tag svg { display: block; width: 17px; height: 17px; }
+/* 视频卡片：封面常显，播放键居中，时长角标右下 */
+.shot--video .shot__play {
+  position: absolute; left: 50%; top: 50%;
+  width: 54px; height: 54px;
+  transform: translate(-50%, -50%);
+  display: grid; place-items: center;
+  color: #FFF4F0;
+  background: rgba(12, 11, 10, .48);
+  border-radius: 50%;
+  backdrop-filter: blur(2px);
+  transition: transform .5s var(--ease), background .5s var(--ease);
+}
+.shot--video:hover .shot__play {
+  transform: translate(-50%, -50%) scale(1.08);
+  background: rgba(194, 69, 46, .6);
+}
+.shot__play svg { display: block; width: 22px; height: 22px; margin-left: 3px; }
+.shot__dur {
+  position: absolute; right: 8px; bottom: 8px;
+  font-size: 11px; letter-spacing: .06em;
+  color: #FFF4F0;
+  background: rgba(6, 5, 4, .72);
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;                      /* M3 */
+  pointer-events: none;
+}
+
 .shot__pin {
   position: absolute; top: 10px; right: 10px;
   width: 7px; height: 7px; border-radius: 50%;
@@ -740,6 +769,16 @@ a.qr__tile > span::after {
   opacity: 0;
   transition: transform .6s var(--ease), opacity .5s var(--ease);
 }
+.lb__fig video {
+  max-width: min(94vw, 1280px);
+  max-height: 74svh;
+  border: 1px solid var(--border);
+  background: #000;
+  transform: scale(.965);
+  opacity: 0;
+  transition: transform .6s var(--ease), opacity .5s var(--ease);
+}
+.lb.is-open video { transform: none; opacity: 1; }
 .lb.is-open .lb__fig img { transform: none; opacity: 1; }
 .lb__cap { width: 100%; text-align: center; }
 .lb__capText {
@@ -791,7 +830,8 @@ a.qr__tile > span::after {
   .hero__sub { letter-spacing: .16em; font-size: 12px; }
   .hero__scroll { bottom: 22px; }
   .hero__count { bottom: 24px; }
-  .hero__arrow { width: 38px; height: 38px; }
+  .hero__arrow { width: 44px; height: 44px; }
+  .hero__arrow svg { width: 22px; height: 22px; }
   .hero__arrow--prev { left: 12px; }
   .hero__arrow--next { right: 12px; }
 

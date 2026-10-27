@@ -303,8 +303,8 @@
   function filtered() {
     var list = state.list.slice();
     if (state.filter === 'featured') list = list.filter(function (p) { return p.featured; });
+    else if (state.filter === 'video') list = list.filter(function (p) { return p.v; });
     else if (state.filter === 'l' || state.filter === 'p') list = list.filter(function (p) { return p.o === state.filter; });
-    else if (state.filter === 'video') list = [];
 
     if (state.sort === 'pinned') {
       list.sort(function (a, b) {
@@ -323,12 +323,17 @@
     return list;
   }
 
+  function fmtDur(sec) {
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
   function shotEl(p, idx) {
     var fig = document.createElement('button');
     fig.type = 'button';
-    fig.className = 'shot';
+    fig.className = 'shot' + (p.v ? ' shot--video' : '');
     fig.setAttribute('data-id', p.id);
-    fig.setAttribute('aria-label', '查看照片 ' + (idx + 1));
+    fig.setAttribute('aria-label', (p.v ? '播放视频 ' : '查看照片 ') + (idx + 1));
     if (p.lqip) fig.style.backgroundImage = 'url("' + p.lqip + '")';
     fig.style.animationDelay = Math.min(idx, 22) * 26 + 'ms';
 
@@ -337,13 +342,34 @@
     img.alt = (p.albumLabel || '作品') + ' ' + (idx + 1);
     img.loading = 'lazy';
     img.decoding = 'async';
-    img.width = 900; img.height = 900;
+    img.width = p.w; img.height = p.h;
     fig.appendChild(img);
+
+    if (p.v) {
+      var play = document.createElement('span');
+      play.className = 'shot__play';
+      play.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+        '<path d="M8 5.4v13.2L19 12z"/></svg>';
+      fig.appendChild(play);
+      if (p.dur) {
+        var d = document.createElement('span');
+        d.className = 'shot__dur';
+        d.textContent = fmtDur(p.dur);
+        fig.appendChild(d);
+      }
+    }
 
     if (p.featured) {
       var tag = document.createElement('span');
       tag.className = 'shot__tag';
-      tag.textContent = '精选';
+      tag.setAttribute('role', 'img');
+      tag.setAttribute('aria-label', '精选作品');
+      tag.title = '精选';
+      tag.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+        '<path d="M12 2.6l2.86 5.8 6.4.93-4.63 4.51 1.09 6.37L12 17.2l-5.72 3.01 1.09-6.37-4.63-4.51 6.4-.93z"/>' +
+        '</svg>';
       fig.appendChild(tag);
     } else if (p.pinned) {
       var pin = document.createElement('span');
@@ -454,9 +480,30 @@
     var caps = (window.AY_CONTENT && window.AY_CONTENT.captions) || {};
     var cap = caps[(p.src || '').split('/').pop()] || {};
     var img = document.getElementById('lbImg');
-    img.src = p.l;
-    img.alt = (p.albumLabel || '') + ' 作品';
-    document.getElementById('lbCaption').textContent = cap.text || '';
+    var vid = document.getElementById('lbVideo');
+
+    // 视频：点击那一刻才设置 src（即此刻才开始下载），其余视频从不加载
+    if (p.v) {
+      img.hidden = true;
+      vid.hidden = false;
+      vid.poster = p.t || '';
+      vid.src = p.v;
+      vid.currentTime = 0;
+      var pp = vid.play();
+      if (pp && pp.catch) pp.catch(function () {});   // 自动播放被拦时静默降级为手动点播
+    } else {
+      if (!vid.hidden) {                              // 离开视频项：停播并彻底释放
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        vid.hidden = true;
+      }
+      img.hidden = false;
+      img.src = p.l;
+      img.alt = (p.albumLabel || '') + ' 作品';
+    }
+
+    document.getElementById('lbCaption').textContent = cap.text || (p.v ? (p.albumLabel || '') + ' · 视频作品' : '');
     document.getElementById('lbAlbum').textContent = p.albumLabel || '';
     document.getElementById('lbTaken').textContent = photoDate(p) || '';
     document.getElementById('lbCam').textContent = p.cam || '';
@@ -482,6 +529,14 @@
   }
   function lbClose() {
     var lb = document.getElementById('lb');
+    var vid = document.getElementById('lbVideo');
+    if (vid && !vid.hidden) {                  // 关灯箱：停播并释放视频
+      vid.pause();
+      vid.removeAttribute('src');
+      vid.load();
+      vid.hidden = true;
+      document.getElementById('lbImg').hidden = false;
+    }
     lb.classList.remove('is-open');
     document.body.style.overflow = '';
     setTimeout(function () { if (!lb.classList.contains('is-open')) lb.hidden = true; }, 450);
