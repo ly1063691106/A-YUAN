@@ -1,0 +1,19 @@
+# GitHub Pages（Jekyll）构建配置
+#
+# 作用：把「本地工具」排除在发布产物之外——文件仍保存在仓库里可版本回溯，
+# 但不会出现在 https://ly1063691106.github.io/A-YUAN/ 下。
+#
+# 注意：本文件生效的前提是仓库没有 .nojekyll 文件（Pages 默认走 Jekyll 构建）。
+# 若日后新增 .nojekyll，本 exclude 会失效，admin.html 将重新可被公开访问。
+
+exclude:
+  - admin.html        # 后台管理页（依赖本地 serve.py 接口）
+  - serve.py          # 本地服务：/api/save、/api/sync、/api/delete
+  - build.py          # 本地构建脚本
+  - build.bat
+  - start.bat
+  - OpenSite.vbs
+  - 使用说明.md
+
+# 素材已由 build.py 生成好，无需 Jekyll 处理图片
+include: []
