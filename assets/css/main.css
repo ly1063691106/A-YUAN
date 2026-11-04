@@ -584,6 +584,7 @@ main > section[id] { scroll-margin-top: calc(var(--nav-h) + 14px); }
 }
 .craft__note { font-size: 14px; letter-spacing: .06em; color: var(--paper-muted); }
 
+/* 每个方向一行：左边文字，右边该方向的作品横条 + 右侧箭头翻看更多 */
 .craft__list {
   list-style: none;
   max-width: var(--maxw); margin: 0 auto;
@@ -592,11 +593,79 @@ main > section[id] { scroll-margin-top: calc(var(--nav-h) + 14px); }
 }
 .craft__item {
   display: grid;
-  grid-template-columns: 74px minmax(0, 1fr) minmax(0, 1.55fr);   /* M2 */
-  gap: 34px;
-  padding: 46px 0;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 20px 48px;
+  padding: 44px 0 40px;
   border-bottom: 1px solid var(--paper-border);
   align-items: start;
+}
+.craft__text {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 4px 18px;
+  align-items: start;
+}
+.craft__text .craft__body { grid-column: 2 / -1; }
+.craft__text .craft__tags { grid-column: 2 / -1; }
+
+/* 作品横条 */
+.craft__media { position: relative; min-width: 0; }
+.craft__strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-right: 2px;
+}
+.craft__strip::-webkit-scrollbar { display: none; }
+.cs-tile {
+  flex: 0 0 auto;
+  height: 208px;
+  padding: 0; border: 0; background: var(--paper-bg);
+  cursor: zoom-in; overflow: hidden; display: block;
+}
+.cs-tile img {
+  height: 100%; width: auto; display: block;
+  filter: brightness(.97) contrast(1.02);
+  transition: filter .4s var(--ease), transform .5s var(--ease);
+}
+.cs-tile:hover img { filter: none; transform: scale(1.03); }
+.cs-tile--video { position: relative; }
+.cs-tile--video::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 0; height: 0; transform: translate(-40%, -50%);
+  border-left: 11px solid rgba(255, 244, 240, .92);
+  border-top: 7px solid transparent; border-bottom: 7px solid transparent;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5));
+}
+
+/* 左右箭头：无圆圈、50% 不透明度（与首屏一致） */
+.craft__nav {
+  position: absolute; top: 50%; z-index: 3;
+  transform: translateY(-50%);
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  color: rgba(12, 11, 10, .5);
+  border: 0; background: none;
+  cursor: pointer;
+  transition: color .35s var(--ease), opacity .35s var(--ease);
+}
+.craft__nav:hover { color: rgba(12, 11, 10, .95); }
+.craft__nav svg { display: block; width: 24px; height: 24px; }
+.craft__nav--prev { left: -30px; }
+.craft__nav--next { right: -30px; }
+.craft__nav[hidden] { display: none; }
+.craft__hint { font-size: 11px; letter-spacing: .14em; color: var(--paper-muted); margin-top: 10px; }
+.craft__empty {
+  min-height: 208px;
+  border: 1px dashed rgba(12, 11, 10, .18);
+  display: grid; place-items: center;
+  padding: 24px;
+  text-align: center;
+  font-size: 12px; letter-spacing: .12em; line-height: 1.9;
+  color: var(--paper-muted);
 }
 .craft__en {
   font-size: 11px; letter-spacing: .24em; color: var(--paper-muted);
@@ -814,8 +883,8 @@ a.qr__tile > span::after {
   :root { --gut: 34px; }
   .about__grid { grid-template-columns: minmax(0, 1fr); gap: 42px; }
   .about__stores { max-width: 560px; }
-  .craft__item { grid-template-columns: 66px minmax(0, 1fr); gap: 12px 24px; }
-  .craft__body { grid-column: 2 / -1; }
+  .craft__item { gap: 18px 26px; }
+  .cs-tile { height: 168px; }
   .contact { grid-template-columns: minmax(0, 1fr); gap: 48px; }
 }
 
@@ -870,9 +939,16 @@ a.qr__tile > span::after {
 
   .craft { padding: 76px 0 70px; }
   .craft__head { padding-bottom: 30px; flex-direction: column; gap: 10px; }
-  .craft__item { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 34px 0; }
-  .craft__body { grid-column: auto; font-size: 14.5px; line-height: 1.95; }
+  .craft__item { grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 32px 0; }
+  .craft__text { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .craft__text .craft__body,
+  .craft__text .craft__tags { grid-column: auto; }
+  .craft__body { font-size: 14.5px; line-height: 1.95; }
   .craft__en { padding-top: 0; }
+  .cs-tile { height: 148px; }
+  .craft__nav { width: 40px; height: 40px; background: rgba(239, 235, 228, .72); }
+  .craft__nav--prev { left: 0; }
+  .craft__nav--next { right: 0; }
 
   .contact { padding: 78px var(--gut) 68px; }
   .contact__dl { grid-template-columns: minmax(0, 1fr); gap: 4px 0; }

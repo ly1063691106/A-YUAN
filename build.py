@@ -57,6 +57,17 @@ def album_meta(name):
     return label, date
 
 
+def album_meta_rel(rel):
+    """多级相册：'儿童摄影/2026-07-05_足球课' -> ('儿童摄影 · 足球课', '2026-07-05')"""
+    labels, date = [], ''
+    for seg in rel.split('/'):
+        l, dt = album_meta(seg)
+        labels.append(l)
+        if dt:
+            date = dt
+    return ' · '.join(labels), date
+
+
 def read_exif(im):
     """取拍摄时间与机身型号"""
     taken, cam = '', ''
@@ -128,10 +139,14 @@ def process_video(src, album_key, album_label, album_date, seq, pid):
 
         ratio = w / h if h else 1
         orient = 'l' if ratio > 1.12 else ('p' if ratio < 0.89 else 's')
+        md5 = hashlib.md5()
+        with open(src, 'rb') as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b''):
+                md5.update(chunk)
         return {
             'id': pid, 'album': album_key, 'albumLabel': album_label,
             'date': album_date, 'taken': '', 'w': w, 'h': h, 'o': orient,
-            'cam': '', 'kind': 'video', 'dur': dur,
+            'cam': '', 'kind': 'video', 'dur': dur, 'hash': md5.hexdigest(),
             't': 'assets/media/t/%s.webp' % pid,
             'v': 'assets/media/v/%s%s' % (pid, vext),
             'lqip': lqip,
@@ -169,6 +184,11 @@ def process_photo(src, album_key, album_label, album_date, seq, pid):
 
         ratio = w / h if h else 1
         orient = 'l' if ratio > 1.12 else ('p' if ratio < 0.89 else 's')
+        # 内容指纹：同一张照片无论改名/换文件夹，只允许出现一次
+        md5 = hashlib.md5()
+        with open(src, 'rb') as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b''):
+                md5.update(chunk)
         return {
             'id': pid,
             'album': album_key,
@@ -177,6 +197,7 @@ def process_photo(src, album_key, album_label, album_date, seq, pid):
             'taken': taken,
             'w': w, 'h': h, 'o': orient,
             'cam': cam,
+            'hash': md5.hexdigest(),
             't': 'assets/media/t/%s.webp' % pid,
             'l': 'assets/media/l/%s.webp' % pid,
             'lqip': lqip,
@@ -215,11 +236,13 @@ def main():
     pinned = load_list('pinned.txt')
 
     albums, jobs = [], []
-    for album_key in sorted(os.listdir(PHOTOS_DIR)):
-        adir = os.path.join(PHOTOS_DIR, album_key)
-        if not os.path.isdir(adir):
-            continue
-        files = sorted(f for f in os.listdir(adir)
+    seen_keys = {}
+    for dirpath, dirnames, filenames in os.walk(PHOTOS_DIR):
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith('_'))   # 跳过 _回收站 等系统目录
+        rel = os.path.relpath(dirpath, PHOTOS_DIR).replace('\\', '/')
+        if rel == '.':
+            continue                                   # photos/ 根目录散图不收录
+        files = sorted(f for f in filenames
                        if (f.lower().endswith(EXTS) or f.lower().endswith(EXTS_V))
                        and f not in EXCLUDE_FILES)
         if not files:
@@ -227,10 +250,14 @@ def main():
         if MAX_PER_ALBUM and len(files) > MAX_PER_ALBUM:
             step = len(files) / MAX_PER_ALBUM
             files = [files[min(int(i * step), len(files) - 1)] for i in range(MAX_PER_ALBUM)]
-        label, date = album_meta(album_key)
+        album_key = rel
+        if album_key in seen_keys:
+            album_key = '%s/%d' % (album_key, seen_keys[album_key])
+        seen_keys[album_key] = seen_keys.get(album_key, 0) + 1
+        label, date = album_meta_rel(rel)
         albums.append({'key': album_key, 'label': label, 'date': date, 'count': len(files)})
         for i, f in enumerate(files, 1):
-            jobs.append((os.path.join(adir, f), album_key, label, date, i))
+            jobs.append((os.path.join(dirpath, f), album_key, label, date, i))
 
     if not jobs:
         print('photos/ 里没有找到照片。')
@@ -250,6 +277,33 @@ def main():
                 photos.append(r)
             if n % 25 == 0 or n == len(jobs):
                 print('  %d / %d' % (n, len(jobs)))
+
+    # 内容查重：同一张照片（指纹相同）只保留第一份，其余移入回收站
+    seen_hash, dup_ids = {}, []
+    kept = []
+    for p in photos:
+        h = p.get('hash')
+        if h and h in seen_hash:
+            dup_ids.append(p['id'])
+            rel = p['src'].replace('/', os.sep)
+            dst = os.path.join(TRASH, '重复', rel[len('photos/'):].replace('/', '_'))
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            full = os.path.join(ROOT, rel)
+            try:
+                shutil.move(full, dst)
+                for k in ('t', 'l', 'v'):
+                    mf = p.get(k)
+                    if mf and os.path.isfile(os.path.join(ROOT, mf.replace('/', os.sep))):
+                        os.remove(os.path.join(ROOT, mf.replace('/', os.sep)))
+            except OSError as e:
+                errors.append('%s: 去重移动失败 %s' % (os.path.basename(p['src']), e))
+        else:
+            if h:
+                seen_hash[h] = p['id']
+            kept.append(p)
+    if dup_ids:
+        photos = kept
+        print('内容查重：剔除重复副本 %d 个（已移入 photos/_回收站/重复/）' % len(dup_ids))
 
     # 分组补上封面与数量
     by_album = {}
@@ -288,12 +342,28 @@ def main():
         json.dump(out, f, ensure_ascii=False, separators=(',', ':'))
         f.write(';\n')
 
+    # 清理孤儿媒体：相册改名/删除后，旧 pid 的文件不再被引用
+    referenced = set()
+    for p in photos:
+        for k in ('t', 'l', 'v'):
+            if p.get(k):
+                referenced.add(os.path.basename(p[k]))
+    removed_orphans = 0
+    for d in (MEDIA_T, MEDIA_L, MEDIA_V):
+        for f in os.listdir(d):
+            if f not in referenced:
+                try:
+                    os.remove(os.path.join(d, f))
+                    removed_orphans += 1
+                except OSError:
+                    pass
+
     size = sum(os.path.getsize(os.path.join(dp, f))
                for dp, _, fs in os.walk(os.path.join(ROOT, 'assets', 'media'))
                for f in fs) / 1024 / 1024
     print('\n完成：%d 张照片，%d 个分组，精选 %d 张' % (
         len(photos), len(albums), out['stats']['featured']))
-    print('产物体积：%.1f MB' % size)
+    print('产物体积：%.1f MB（清理孤儿媒体 %d 个）' % (size, removed_orphans))
     if errors:
         print('跳过 %d 个文件：' % len(errors))
         for e in errors[:10]:

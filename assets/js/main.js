@@ -302,6 +302,8 @@
 
   function filtered() {
     var list = state.list.slice();
+    // 同一张作品可以在首图、底片轨、网格多处展示 ——
+    // 但各处引用的都是同一份文件（缩略图 t / 大图 l），不会生成第二份副本。
     if (state.filter === 'featured') list = list.filter(function (p) { return p.featured; });
     else if (state.filter === 'video') list = list.filter(function (p) { return p.v; });
     else if (state.filter === 'l' || state.filter === 'p') list = list.filter(function (p) { return p.o === state.filter; });
@@ -478,7 +480,7 @@
     var p = lbState.list[lbState.i];
     if (!p) return;
     var caps = (window.AY_CONTENT && window.AY_CONTENT.captions) || {};
-    var cap = caps[(p.src || '').split('/').pop()] || {};
+    var cap = p._cap || caps[(p.src || '').split('/').pop()] || {};
     var img = document.getElementById('lbImg');
     var vid = document.getElementById('lbVideo');
 
@@ -573,6 +575,61 @@
   }
 
   /* ==========================================================
+     7b · 作品配置自动拉取（后台管理的数据源）
+     overrides.json 由本地后台管理页（admin.html）生成并提交到
+     GitHub 仓库；这里按 同源 → raw → jsDelivr 顺序拉取，
+     谁先成功用谁，全部失败就静默沿用构建时的静态配置。
+     ========================================================== */
+  var OVERRIDE_SOURCES = [
+    'data/overrides.json',
+    'https://raw.githubusercontent.com/ly1063691106/A-YUAN/main/data/overrides.json',
+    'https://cdn.jsdelivr.net/gh/ly1063691106/A-YUAN@main/data/overrides.json'
+  ];
+  function baseName(p) { return (p.src || '').split('/').pop(); }
+
+  function applyOverrides(o) {
+    if (!o || (!o.featured && !o.captions)) return;
+    var byName = {};
+    state.list.forEach(function (p) { byName[baseName(p)] = p; });
+    if (o.featured && o.featured.length) {      // 空名单不覆盖静态精选（兜底）
+      state.list.forEach(function (p) { p.featured = false; });
+      o.featured.forEach(function (name) {
+        if (byName[name]) byName[name].featured = true;
+      });
+    }
+    var caps = o.captions || {};
+    state.list.forEach(function (p) { p._cap = caps[baseName(p)] || null; });
+
+    var featured = state.list.filter(function (p) { return p.featured; });
+    if (!featured.length) featured = state.list.slice(0, 12);
+    window.AY_PHOTOS.featured = featured;
+    buildRail(featured);                       // 底片轨随新精选重建
+    if (window.AY_REFRESH_CRAFT) window.AY_REFRESH_CRAFT();   // 擅长区右侧照片池也跟着精选走
+    applyGrid();                               // 网格重排（保留当前筛选/页数）
+  }
+
+  function loadOverrides() {
+    var i = 0;
+    function tryNext() {
+      if (i >= OVERRIDE_SOURCES.length) return;
+      var url = OVERRIDE_SOURCES[i++] + '?v=' + Date.now();
+      var opt = {};
+      var timer = 0;
+      if ('AbortController' in window) {
+        opt.signal = new AbortController().signal;
+        timer = setTimeout(function () { try { opt.signal.abort(); } catch (e) {} }, 6000);
+      }
+      fetch(url, opt).then(function (r) {
+        clearTimeout(timer);
+        return r.ok ? r.json() : Promise.reject(new Error(r.status));
+      }).then(function (o) {
+        if (o && (o.featured || o.captions)) applyOverrides(o);
+      }).catch(function () { clearTimeout(timer); tryNext(); });
+    }
+    tryNext();
+  }
+
+  /* ==========================================================
      7 · 数据装配
      ========================================================== */
   function buildRail(list) {
@@ -599,7 +656,7 @@
       fig.appendChild(no);
 
       var caps = (window.AY_CONTENT && window.AY_CONTENT.captions) || {};
-      var cap = caps[(p.src || '').split('/').pop()];
+      var cap = p._cap || caps[(p.src || '').split('/').pop()];
       if (cap && cap.text) {
         var c = document.createElement('span');
         c.className = 'frame__cap';
@@ -612,19 +669,116 @@
     track.appendChild(frag);
   }
 
+  /* ==========================================================
+     6b · 擅长区：每个方向一行，右侧是该方向的作品横条 + 箭头
+     ========================================================== */
+  var ARROW_L = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+  var ARROW_R = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+
+  function domainKeyOf(title) {
+    if (!title) return '';
+    if (title.indexOf('婚礼') >= 0) return '婚礼';
+    if (title.indexOf('活动') >= 0) return '活动';
+    if (title.indexOf('儿童') >= 0) return '儿童';
+    if (title.indexOf('产品') >= 0) return '产品';
+    return '';
+  }
+
+  /* 该方向的精选作品：只取精选（在后台勾选的），不再用普通照片凑数 */
+  function domainPool(key, limit) {
+    if (!key) return [];
+    var feat = state.list.filter(function (p) {
+      return p.featured && (p.albumLabel || '').indexOf(key) >= 0;
+    });
+    return feat.slice(0, limit || 24);
+  }
+
+  function buildStrip(media, pool) {
+    var strip = document.createElement('div');
+    strip.className = 'craft__strip';
+    pool.forEach(function (p, idx) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cs-tile' + (p.v ? ' cs-tile--video' : '');
+      b.setAttribute('aria-label', (p.v ? '播放视频 ' : '看大图 ') + (p.albumLabel || ''));
+      var img = document.createElement('img');
+      img.src = p.t;
+      img.alt = p.albumLabel || '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      b.appendChild(img);
+      b.addEventListener('click', function () { lbOpen(pool, idx); });
+      strip.appendChild(b);
+    });
+    media.appendChild(strip);
+
+    var prev = document.createElement('button');
+    prev.type = 'button';
+    prev.className = 'craft__nav craft__nav--prev';
+    prev.innerHTML = ARROW_L;
+    prev.setAttribute('aria-label', '往前看');
+    var next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'craft__nav craft__nav--next';
+    next.innerHTML = ARROW_R;
+    next.setAttribute('aria-label', '往后看更多作品');
+
+    function upd() {
+      var max = strip.scrollWidth - strip.clientWidth;
+      prev.hidden = strip.scrollLeft <= 4;
+      next.hidden = strip.scrollLeft >= max - 4;
+    }
+    var step = function () { return Math.max(160, Math.round(strip.clientWidth * 0.86)); };
+    prev.addEventListener('click', function () { strip.scrollBy({ left: -step(), behavior: 'smooth' }); });
+    next.addEventListener('click', function () { strip.scrollBy({ left: step(), behavior: 'smooth' }); });
+    strip.addEventListener('scroll', upd, { passive: true });
+    window.addEventListener('resize', upd);
+
+    /* 鼠标悬停时滚轮横向翻看作品；滑到两端就放行，让页面继续上下滚 */
+    strip.addEventListener('wheel', function (e) {
+      var max = strip.scrollWidth - strip.clientWidth;
+      if (max <= 4) return;
+      var d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (!d) return;
+      var target = strip.scrollLeft + d;
+      var atStart = strip.scrollLeft <= 0;
+      var atEnd = strip.scrollLeft >= max - 1;
+      if ((d < 0 && atStart) || (d > 0 && atEnd)) return;   // 到头了 → 页面正常滚动
+      e.preventDefault();
+      strip.scrollLeft = Math.max(0, Math.min(max, target));
+      upd();
+    }, { passive: false });
+    strip.addEventListener('load', upd, true);     // 图片加载后宽度才算准，重新判断箭头
+    if ('ResizeObserver' in window) new ResizeObserver(upd).observe(strip);
+
+    media.appendChild(prev);
+    media.appendChild(next);
+
+    var hint = document.createElement('p');
+    hint.className = 'craft__hint';
+    hint.textContent = pool.length + ' 张精选 · 点开看大图' + (pool.length > 3 ? ' · 滚轮或右侧箭头看更多' : '');
+    media.appendChild(hint);
+
+    setTimeout(upd, 80);
+  }
+
   function buildCraft() {
     var list = document.getElementById('craftList');
     var items = (window.AY_CONTENT && window.AY_CONTENT.craft) || [];
     if (!list || !items.length) return;
+    var rebuilt = list.children.length > 0;   // 精选配置刷新导致的重建：直接可见，避免错过进场观察器
     var frag = document.createDocumentFragment();
+
     items.forEach(function (it) {
       var li = document.createElement('li');
-      li.className = 'craft__item rv';
+      li.className = 'craft__item rv' + (rebuilt ? ' is-in' : '');
 
+      var text = document.createElement('div');
+      text.className = 'craft__text';
       var en = document.createElement('p');
       en.className = 'craft__en';
       en.textContent = it.en || '';
-      li.appendChild(en);
+      text.appendChild(en);
 
       var mid = document.createElement('div');
       var h = document.createElement('h3');
@@ -635,23 +789,39 @@
         var tw = document.createElement('div');
         tw.className = 'craft__tags';
         it.tags.forEach(function (t) {
-          var s = document.createElement('span');
-          s.textContent = t;
-          tw.appendChild(s);
+          var sp = document.createElement('span');
+          sp.textContent = t;
+          tw.appendChild(sp);
         });
         mid.appendChild(tw);
       }
-      li.appendChild(mid);
-
       var body = document.createElement('p');
       body.className = 'craft__body';
       body.textContent = it.body || '';
-      li.appendChild(body);
+      mid.appendChild(body);
+      text.appendChild(mid);
+      li.appendChild(text);
+
+      var media = document.createElement('div');
+      media.className = 'craft__media';
+      var pool = domainPool(domainKeyOf(it.title), 14);
+      if (pool.length) {
+        buildStrip(media, pool);
+      } else {
+        var ph = document.createElement('div');
+        ph.className = 'craft__empty';
+        ph.textContent = '这个方向还没有精选作品\n在后台勾选精选后会自动出现在这里';
+        ph.style.whiteSpace = 'pre-line';
+        media.appendChild(ph);
+      }
+      li.appendChild(media);
 
       frag.appendChild(li);
     });
+
     list.textContent = '';
     list.appendChild(frag);
+    window.AY_REFRESH_CRAFT = function () { buildCraft(); };
   }
 
   function boot() {
@@ -686,6 +856,7 @@
     applyGrid();
     rail();
     lightbox();
+    loadOverrides();                           // 异步：拉到后台配置后自动重排
 
     // 窗口宽度变了，行宽要重算（筛选结果不变，只重新排版）
     var rt = 0;
