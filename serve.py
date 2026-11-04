@@ -242,6 +242,78 @@ def api_delete(paths, ids=None):
             'errors': errors, 'total': d['stats']['total']}
 
 
+def api_move(ids, album):
+    """把作品移动到另一个相册（真实移动 photos/ 下的源文件，并更新数据）。
+
+    - 目标相册不存在会自动创建目录
+    - 同名文件自动加 _1、_2 后缀，不覆盖
+    - id 不变，缩略图/大图/视频文件名不变，无需重新生成
+    """
+    import build as B
+
+    album = (album or '').strip().strip('/').replace('\\', '/')
+    if not album or '..' in album or album.startswith('photos'):
+        return {'ok': False, 'error': '相册名不合法：%s' % album}
+
+    d = read_data()
+    idmap = {p['id']: p for p in d['photos']}
+    dest = os.path.join(ROOT, 'photos', album.replace('/', os.sep))
+    label, date = B.album_meta_rel(album)
+
+    moved, skipped, errors = [], [], []
+    try:
+        os.makedirs(dest, exist_ok=True)
+    except Exception as e:
+        return {'ok': False, 'error': '无法创建相册目录：%s' % e}
+
+    for pid in (ids or []):
+        p = idmap.get(pid)
+        if not p:
+            errors.append('%s: 记录不存在' % pid)
+            continue
+        if p.get('album') == album:
+            skipped.append(p.get('src') or pid)
+            continue
+        full = os.path.join(ROOT, (p.get('src') or '').replace('/', os.sep))
+        if not p.get('src') or not os.path.isfile(full):
+            errors.append('%s: 源文件不存在，无法移动' % (p.get('src') or pid))
+            continue
+        base = os.path.basename(full)
+        stem, ext = os.path.splitext(base)
+        target = os.path.join(dest, base)
+        n = 1
+        while os.path.exists(target):
+            target = os.path.join(dest, '%s_%d%s' % (stem, n, ext))
+            n += 1
+        try:
+            shutil.move(full, target)
+        except Exception as e:
+            errors.append('%s: %s' % (base, e))
+            continue
+        p['src'] = os.path.relpath(target, ROOT).replace('\\', '/')
+        p['album'] = album
+        p['albumLabel'] = label
+        if date:
+            p['date'] = date
+        moved.append(pid)
+
+    if moved:
+        albums = {}
+        for p in d['photos']:
+            k = p['album']
+            if k not in albums:
+                lb, dt = B.album_meta_rel(k)
+                albums[k] = {'key': k, 'label': lb, 'date': dt, 'count': 0}
+            albums[k]['count'] += 1
+        d['albums'] = sorted(albums.values(), key=lambda a: a['key'])
+        d['stats']['total'] = len(d['photos'])
+        d['stats']['albums'] = len(d['albums'])
+        write_data(d)
+
+    return {'ok': True, 'moved': len(moved), 'skipped': skipped, 'errors': errors,
+            'album': album, 'label': label, 'total': len(d['photos'])}
+
+
 class ApiHandler(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -275,7 +347,7 @@ class ApiHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         route = self.path.split('?')[0].rstrip('/')
-        if route not in ('/api/delete', '/api/save', '/api/sync'):
+        if route not in ('/api/delete', '/api/save', '/api/sync', '/api/move'):
             self.send_response(404)
             self.end_headers()
             return
@@ -284,6 +356,8 @@ class ApiHandler(http.server.SimpleHTTPRequestHandler):
             body = json.loads(self.rfile.read(length).decode('utf-8')) if length else {}
             if route == '/api/delete':
                 result = api_delete(body.get('paths') or [], body.get('ids') or [])
+            elif route == '/api/move':
+                result = api_move(body.get('ids') or [], body.get('album') or '')
             elif route == '/api/sync':
                 result = api_sync()
             else:
