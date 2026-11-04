@@ -1,0 +1,9 @@
+{
+  "_说明": "素材访问地址配置。build.py 读取本文件，把 data/photos.js 里的素材路径写成下面的基址。改完需重跑 build.bat。",
+
+  "_mediaBase": "图片（缩略图 t / 大图 l）的根地址。默认站内相对路径；填 CDN 域名可让图片也走外部存储。必须以 / 结尾或省略末尾斜杠均可。",
+  "mediaBase": "assets/media/",
+
+  "_videoBase": "视频的独立根地址。留空 = 视频与图片同源（站内 relative 路径）。填了就以它为准，例如 https://cdn.example.com/ ，此时视频条目会写成 https://cdn.example.com/v/<id>.mp4",
+  "videoBase": ""
+}

@@ -39,6 +39,37 @@ Q_LARGE = 82
 LQIP_W = 24              # 模糊占位图宽度
 MEDIA_V = os.path.join(ROOT, 'assets', 'media', 'v')
 
+# ── 素材访问地址（与存储解耦）────────────────────────────────────
+# 视频/图片若放到外部存储（腾讯云 COS、Cloudflare R2 等 CDN），
+# 在 site.config.json 里填基址即可，前端一行都不用改——
+# data/photos.js 里的路径会被写成完整 URL。
+# 留空 = 继续用站内相对路径 assets/media/（本地开发与 GitHub Pages 都是这个值）
+CONFIG_FILE = os.path.join(ROOT, 'site.config.json')
+_SITE_CFG = {}
+if os.path.exists(CONFIG_FILE):
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as fh:
+            _SITE_CFG = json.load(fh)
+    except Exception as exc:
+        print('site.config.json 解析失败，改用站内路径：%s' % exc)
+
+MEDIA_BASE = ((_SITE_CFG.get('mediaBase') or 'assets/media/').strip()).rstrip('/') + '/'
+VIDEO_BASE = ((_SITE_CFG.get('videoBase') or '').strip()).rstrip('/')
+if VIDEO_BASE:
+    VIDEO_BASE += '/'
+
+
+def media_url(kind, name):
+    """拼素材地址。kind 取 't'（缩略图）/ 'l'（大图）/ 'v'（视频）。
+
+    videoBase 有值时视频走外部存储，图片仍可留在站内；
+    mediaBase 决定站内图片前缀，可填 CDN 域名让图片也外置。
+    """
+    if kind == 'v' and VIDEO_BASE:
+        return VIDEO_BASE + 'v/' + name
+    return MEDIA_BASE + kind + '/' + name
+
+
 # 每个作品集分组最多收录多少张（0 = 不限）。单组照片太多会淹掉其他组。
 MAX_PER_ALBUM = 0
 
@@ -147,8 +178,8 @@ def process_video(src, album_key, album_label, album_date, seq, pid):
             'id': pid, 'album': album_key, 'albumLabel': album_label,
             'date': album_date, 'taken': '', 'w': w, 'h': h, 'o': orient,
             'cam': '', 'kind': 'video', 'dur': dur, 'hash': md5.hexdigest(),
-            't': 'assets/media/t/%s.webp' % pid,
-            'v': 'assets/media/v/%s%s' % (pid, vext),
+            't': media_url('t', pid + '.webp'),
+            'v': media_url('v', pid + vext),
             'lqip': lqip,
             'src': os.path.relpath(src, ROOT).replace('\\', '/'),
             'featured': False, 'pinned': False, 'caption': '',
@@ -198,8 +229,8 @@ def process_photo(src, album_key, album_label, album_date, seq, pid):
             'w': w, 'h': h, 'o': orient,
             'cam': cam,
             'hash': md5.hexdigest(),
-            't': 'assets/media/t/%s.webp' % pid,
-            'l': 'assets/media/l/%s.webp' % pid,
+            't': media_url('t', pid + '.webp'),
+            'l': media_url('l', pid + '.webp'),
             'lqip': lqip,
             'src': os.path.relpath(src, ROOT).replace('\\', '/'),
             'featured': False,
