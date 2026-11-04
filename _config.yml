@@ -7,7 +7,7 @@
 # 若日后新增 .nojekyll，本 exclude 会失效，admin.html 将重新可被公开访问。
 
 exclude:
-  - admin.html        # 后台管理页（依赖本地 serve.py 接口）
+  - admin.html        # 后台管理页（已从仓库移除，此处为兜底：万一被重新加入也不发布）
   - serve.py          # 本地服务：/api/save、/api/sync、/api/delete
   - build.py          # 本地构建脚本
   - build.bat
