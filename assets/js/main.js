@@ -483,17 +483,23 @@
     var cap = p._cap || caps[(p.src || '').split('/').pop()] || {};
     var img = document.getElementById('lbImg');
     var vid = document.getElementById('lbVideo');
+    var fb = document.getElementById('lbFallback');
 
     // 视频：点击那一刻才设置 src（即此刻才开始下载），其余视频从不加载
     if (p.v) {
       img.hidden = true;
       vid.hidden = false;
+      fb.hidden = true;
       vid.poster = p.t || '';
+      // 视频文件未随站点上传时（如 GitHub Pages），降级为封面 + 外链提示
+      vid.onerror = function () { vid.hidden = true; fb.hidden = false; };
       vid.src = p.v;
       vid.currentTime = 0;
       var pp = vid.play();
       if (pp && pp.catch) pp.catch(function () {});   // 自动播放被拦时静默降级为手动点播
     } else {
+      vid.onerror = null;
+      fb.hidden = true;
       if (!vid.hidden) {                              // 离开视频项：停播并彻底释放
         vid.pause();
         vid.removeAttribute('src');

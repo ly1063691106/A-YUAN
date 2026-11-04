@@ -849,6 +849,31 @@ a.qr__tile > span::after {
 }
 .lb.is-open video { transform: none; opacity: 1; }
 .lb.is-open .lb__fig img { transform: none; opacity: 1; }
+
+/* 视频源缺失时的降级提示（GitHub Pages 不托管视频文件） */
+.lb__fallback {
+  width: min(94vw, 720px);
+  padding: 56px 32px;
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, .02);
+  text-align: center;
+}
+.lb__fallback[hidden] { display: none; }
+.lb__fallbackText {
+  margin: 0;
+  font-size: 15px; letter-spacing: .04em;
+  color: var(--ink-2, #9a948c);
+}
+.lb__fallbackLink {
+  font-size: 13px; letter-spacing: .12em;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+}
+.lb__fallbackLink:hover { opacity: .75; }
+
 .lb__cap { width: 100%; text-align: center; }
 .lb__capText {
   font-family: var(--f-serif); font-size: 16px; font-weight: 600;
