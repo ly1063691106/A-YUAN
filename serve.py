@@ -148,22 +148,76 @@ def api_overrides():
         return json.load(f)
 
 
-def api_delete(paths):
-    """把作品文件移入回收站，并同步移除其缩略图/大图/视频与数据条目。"""
+def _drop_media(entry):
+    """删除某条作品的缩略图 / 大图 / 视频派生文件（源图不动）。"""
+    for k in ('t', 'l', 'v'):
+        mf = entry.get(k)
+        if not mf:
+            continue
+        mf_full = os.path.join(ROOT, mf.replace('/', os.sep))
+        if os.path.isfile(mf_full):
+            try:
+                os.remove(mf_full)
+            except OSError:
+                pass
+
+
+def api_orphans():
+    """列出「数据里还有记录、但本地源文件已经不在了」的作品，供后台一键清理。"""
     d = read_data()
-    removed, errors = [], []
+    out, ids = [], []
+    for p in d['photos']:
+        src = (p.get('src') or '').replace('\\', '/')
+        if not src or not os.path.isfile(os.path.join(ROOT, src.replace('/', os.sep))):
+            out.append(src)
+            ids.append(p['id'])
+    return {'count': len(out), 'paths': out, 'ids': ids, 'total': len(d['photos'])}
+
+
+def api_delete(paths, ids=None):
+    """删除作品：源图移入回收站，并同步移除缩略图/大图/视频与数据条目。
+
+    源文件已经不在本地时不算失败 —— 直接清掉记录与派生媒体，计入 recordOnly。
+    ids 参数用于「只删记录」：按作品 id 直接移除条目，不碰磁盘。
+    """
+    d = read_data()
+    removed, errors, record_only = [], [], []
     drop = []
-    for rel in paths:
+
+    # ① 按 id 只删记录（用于源文件缺失、甚至没有 src 的条目）
+    for pid in (ids or []):
+        entry = next((p for p in d['photos'] if p['id'] == pid), None)
+        if not entry:
+            errors.append('%s: 记录不存在' % pid)
+            continue
+        _drop_media(entry)
+        drop.append(entry['id'])
+        record_only.append((entry.get('src') or pid))
+        removed.append(entry.get('src') or pid)
+
+    for rel in (paths or []):
         rel = (rel or '').replace('\\', '/')
         full = os.path.join(ROOT, rel.replace('/', os.sep))
-        # 安全：只允许删除 photos/ 下的文件
+        # 安全：只允许操作 photos/ 下的文件
         if not rel.startswith('photos/') or '..' in rel:
             errors.append('%s: 路径不合法' % rel)
             continue
-        if not os.path.isfile(full):
-            errors.append('%s: 文件不存在' % rel)
+        entry = next((p for p in d['photos']
+                      if (p.get('src') or '').replace('\\', '/') == rel), None)
+        if entry and entry['id'] in drop:          # 已按 id 处理过
             continue
-        entry = next((p for p in d['photos'] if p['src'].replace('\\', '/') == rel), None)
+
+        # 源图已不在：有记录就只清记录，没有记录才算失败
+        if not os.path.isfile(full):
+            if entry:
+                _drop_media(entry)
+                drop.append(entry['id'])
+                record_only.append(rel)
+                removed.append(rel)
+            else:
+                errors.append('%s: 文件与记录都不存在' % rel)
+            continue
+
         # 1) 原图移入回收站（保留原相册层级，可找回）
         dst = os.path.join(TRASH, rel[len('photos/'):].replace('/', '_'))
         os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -174,19 +228,9 @@ def api_delete(paths):
             continue
         # 2) 清理派生媒体
         if entry:
-            for k in ('t', 'l', 'v'):
-                mf = entry.get(k)
-                if mf:
-                    mf_full = os.path.join(ROOT, mf.replace('/', os.sep))
-                    if os.path.isfile(mf_full):
-                        try:
-                            os.remove(mf_full)
-                        except OSError:
-                            pass
+            _drop_media(entry)
             drop.append(entry['id'])
-            removed.append(rel)
-        else:
-            removed.append(rel)
+        removed.append(rel)
     if drop:
         d['photos'] = [p for p in d['photos'] if p['id'] not in set(drop)]
         d['stats']['total'] = len(d['photos'])
@@ -194,7 +238,8 @@ def api_delete(paths):
         for a in d['albums']:
             a['count'] = sum(1 for p in d['photos'] if p['album'] == a['key'])
         write_data(d)
-    return {'deleted': removed, 'errors': errors, 'total': d['stats']['total']}
+    return {'deleted': removed, 'recordOnly': record_only,
+            'errors': errors, 'total': d['stats']['total']}
 
 
 class ApiHandler(http.server.SimpleHTTPRequestHandler):
@@ -212,9 +257,10 @@ class ApiHandler(http.server.SimpleHTTPRequestHandler):
         pass                                      # 静默访问日志，控制台只留关键信息
 
     def do_GET(self):
-        if self.path.split('?')[0].rstrip('/') == '/api/overrides':
+        route = self.path.split('?')[0].rstrip('/')
+        if route in ('/api/overrides', '/api/orphans'):
             try:
-                data = api_overrides()
+                data = api_orphans() if route == '/api/orphans' else api_overrides()
                 body = json.dumps(data, ensure_ascii=False).encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
@@ -237,7 +283,7 @@ class ApiHandler(http.server.SimpleHTTPRequestHandler):
             length = int(self.headers.get('Content-Length') or 0)
             body = json.loads(self.rfile.read(length).decode('utf-8')) if length else {}
             if route == '/api/delete':
-                result = api_delete(body.get('paths') or [])
+                result = api_delete(body.get('paths') or [], body.get('ids') or [])
             elif route == '/api/sync':
                 result = api_sync()
             else:
