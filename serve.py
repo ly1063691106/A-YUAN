@@ -242,6 +242,63 @@ def api_delete(paths, ids=None):
             'errors': errors, 'total': d['stats']['total']}
 
 
+def api_audit():
+    """校验素材一致性：返回封面/视频缺失、内容哈希不符、t 与 v 不同源的条目。
+
+    视频额外做 md5 比对（v 是源文件的原样拷贝，应当等于记录里的 hash）；
+    照片只查文件是否存在（重编码后哈希必然不同，不能比）。
+    """
+    import hashlib
+
+    d = read_data()
+    rows = []
+    miss_t = miss_v = hash_bad = name_bad = 0
+    videos = 0
+
+    for p in d['photos']:
+        pid = p.get('id')
+        name = (p.get('src') or '').replace('\\', '/').split('/')[-1]
+        t = p.get('t') or ''
+        v = p.get('v') or ''
+        problems = []
+
+        if not t or not os.path.isfile(os.path.join(ROOT, t.replace('/', os.sep))):
+            miss_t += 1
+            problems.append('封面缺失')
+
+        if v:
+            videos += 1
+            vfull = os.path.join(ROOT, v.replace('/', os.sep))
+            if not os.path.isfile(vfull):
+                miss_v += 1
+                problems.append('视频缺失')
+            else:
+                if os.path.splitext(os.path.basename(t))[0] != os.path.splitext(os.path.basename(v))[0]:
+                    name_bad += 1
+                    problems.append('封面与视频不同源（文件名不一致）')
+                want = p.get('hash')
+                if want:
+                    h = hashlib.md5()
+                    try:
+                        with open(vfull, 'rb') as fh:
+                            for chunk in iter(lambda: fh.read(1 << 20), b''):
+                                h.update(chunk)
+                        if h.hexdigest() != want:
+                            hash_bad += 1
+                            problems.append('视频内容与记录不符（可能被同名覆盖）')
+                    except OSError:
+                        problems.append('视频读取失败')
+
+        if problems:
+            rows.append({'id': pid, 'name': name, 'album': p.get('albumLabel') or p.get('album'),
+                         'problems': problems})
+
+    return {'total': len(d['photos']), 'videos': videos, 'problems': len(rows),
+            'missingThumb': miss_t, 'missingVideo': miss_v,
+            'hashMismatch': hash_bad, 'nameMismatch': name_bad,
+            'items': rows[:200]}
+
+
 def api_move(ids, album):
     """把作品移动到另一个相册（真实移动 photos/ 下的源文件，并更新数据）。
 
@@ -330,9 +387,14 @@ class ApiHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         route = self.path.split('?')[0].rstrip('/')
-        if route in ('/api/overrides', '/api/orphans'):
+        if route in ('/api/overrides', '/api/orphans', '/api/audit'):
             try:
-                data = api_orphans() if route == '/api/orphans' else api_overrides()
+                if route == '/api/orphans':
+                    data = api_orphans()
+                elif route == '/api/audit':
+                    data = api_audit()
+                else:
+                    data = api_overrides()
                 body = json.dumps(data, ensure_ascii=False).encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json; charset=utf-8')
