@@ -19,3 +19,7 @@ __pycache__/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# 诊断脚本产物
+_audit_*.py
+_video_poster_audit.json
